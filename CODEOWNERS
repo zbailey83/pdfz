@@ -1,0 +1,15 @@
+# Default owners for the entire repository
+* @marketingmix-team
+
+# Backend
+/backend/ @backend-team
+
+# Frontend
+/frontend/ @frontend-team
+
+# ML Service
+/ml/ @ml-team
+
+# Infrastructure
+/infra/ @devops-team
+

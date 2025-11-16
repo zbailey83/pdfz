@@ -1,0 +1,88 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: marketingmix
+      POSTGRES_PASSWORD: dev_password_change_in_prod
+      POSTGRES_DB: marketingmix_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marketingmix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://marketingmix:dev_password_change_in_prod@postgres:5432/marketingmix_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev_jwt_secret_change_in_prod
+      JWT_REFRESH_SECRET: dev_refresh_secret_change_in_prod
+      AWS_REGION: us-east-1
+      AWS_S3_BUCKET: marketingmix-dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000/api/v1
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  ml-service:
+    build:
+      context: ./ml
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      REDIS_URL: redis://redis:6379
+      MODEL_CACHE_TTL: 3600
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./ml:/app
+      - ml_models:/app/models
+
+volumes:
+  postgres_data:
+  redis_data:
+  ml_models:
